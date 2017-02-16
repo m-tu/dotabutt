@@ -127,40 +127,80 @@ function addPlayerChart(info) {
 	})
 }
 
-let players = [
-	{name: "Aqua", id: 30277848},
-	{name: "Marten", id: 94537401},
-	{name: "Uku", id: 56056709},
-	{name: "Madis", id: 5559243},
-	{name: "+2 pizza", id: 104356591}
-];
+let players = {
+  30277848: "Aqua",
+  94537401: "Marten",
+  56056709: "Uku",
+  5559243: "Madis",
+  104356591: "+2 pizza"
+};
+
+function loadMMRGraph() {
+  fetch("/mmr").then(res => res.json()).then(mmrs => {
+    let mmrById = {};
+
+    for (let i = 0; i < mmrs.length; i++) {
+      let m = mmrs[i];
+      if (!mmrById[m.player_id]) {
+        mmrById[m.player_id] = [];
+      }
+      mmrById[m.player_id].push([new Date(m.timestamp).valueOf(), m.mmr]);
+    }
+
+    let series = [];
+
+    for (let playerId in mmrById) {
+      let mmrSeq = mmrById[playerId];
+      series.push({
+        name: players[playerId],
+        data: mmrSeq
+      });
+    }
+
+    Highcharts.chart("mmrChart", {
+      chart: { type: "spline" },
+      title: { text: "Weekly MMR" },
+      yAxis: { title: { text: "MMR" } },
+      xAxis: { type: "datetime", title: { text: "Date" } },
+      legend: {
+        layout: "vertical",
+        align: "right",
+        verticalAlign: "middle",
+      },
+      series: series
+    });
+  });
+}
+
+loadMMRGraph();
 
 let playerList = document.getElementById("players");
-players.forEach(p => {
-	findCounts(p, stats => {
-		let gameCount = 0;
-		let wins = 0;
+for (let k in players) {
+  let name = players[k];
+  let p = {id: k, name: name};
+  findCounts(p, stats => {
+	let gameCount = 0;
+	let wins = 0;
 
-		stats.forEach(h => {
-			gameCount += h.games;
-			wins += h.wins;
-		});
-
-		let losses = gameCount - wins;
-
-		let winRatio = (wins / gameCount) * 100.0;
-
-		let playerItem = document.createElement("li");
-		let playerStat = document.createTextNode(
-			p.name + " - " + gameCount + " games - " + winRatio.toFixed(1) + "%");
-		playerItem.appendChild(playerStat);
-		playerList.appendChild(playerItem);
-
-		addPlayerChart({
-			name: p.name,
-			id: p.id,
-			stats: stats
-		});
+	stats.forEach(h => {
+		gameCount += h.games;
+		wins += h.wins;
 	});
-})
 
+	let losses = gameCount - wins;
+
+	let winRatio = (wins / gameCount) * 100.0;
+
+	let playerItem = document.createElement("li");
+	let playerStat = document.createTextNode(
+		p.name + " - " + gameCount + " games - " + winRatio.toFixed(1) + "%");
+	playerItem.appendChild(playerStat);
+	playerList.appendChild(playerItem);
+
+	addPlayerChart({
+		name: p.name,
+		id: p.id,
+		stats: stats
+	});
+  });
+}
