@@ -14,6 +14,8 @@ let pool = new pg.Pool({
   port: 5432
 });
 
+const ENV = app.get('env') || 'prod';
+
 function updatePlayerMMR(playerId) {
   request("https://api.opendota.com/api/players/" + playerId, function(err, response, body) {
     if (!err && response.statusCode == 200) {
@@ -45,7 +47,10 @@ function updateMMR() {
   });
 }
 
-new CronJob("0 * * * *", updateMMR, null, true);
+
+if (ENV === 'prod') {
+  new CronJob("0 * * * *", updateMMR, null, true);
+}
 
 let staticResPath = path.join(__dirname, './');
 app.use(express.static(staticResPath));
@@ -72,6 +77,7 @@ app.get("/mmr", function(req, res) {
   });
 });
 
-http.listen(8001, function(){
+app.set('port', process.env.PORT || 8001);
+http.listen(app.get('port'), function(){
 	console.log('dotabutt listening on *:8001');
 });

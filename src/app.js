@@ -1,25 +1,82 @@
+let players = {
+	30277848: "Aqua",
+	94537401: "Marten",
+	56056709: "Uku",
+	5559243: "Madis",
+	104356591: "+2 pizza"
+};
+
+const api = 'https://api.opendota.com/api/';
+const heroesUrl = api + 'heroes';
+let heroes = null;
+
+fetch(heroesUrl).then( res => {
+	res.json().then( json => {
+		heroes = json;
+		loadMMRGraph();
+		init()
+	});
+});
+
+function init() {
+	let playerList = document.getElementById("players");
+	for (let k in players) {
+		let name = players[k];
+		let p = {id: k, name: name};
+		findCounts(p, stats => {
+			let gameCount = 0;
+			let wins = 0;
+
+			stats.forEach(h => {
+				gameCount += h.games;
+				wins += h.wins;
+			});
+
+			let losses = gameCount - wins;
+
+			let winRatio = (wins / gameCount) * 100.0;
+
+			let playerItem = document.createElement("li");
+			let playerStat = document.createTextNode(
+				p.name + " - " + gameCount + " games - " + winRatio.toFixed(1) + "%");
+			playerItem.appendChild(playerStat);
+			playerList.appendChild(playerItem);
+
+			addPlayerChart({
+				name: p.name,
+				id: p.id,
+				stats: stats
+			});
+		});
+	}
+}
 
 function findCounts(player, success) {
-	let api = 'https://api.opendota.com/api/';
 	let matchesUrl = api + 'players/' + player.id + '/matches';
-
+	let peersUrl = api + 'players/' + player.id + '/peers';
 	let params = {
 		date: 7,
 		lobby_type: 7 //ranked
 	};
 
-	fetch(matchesUrl + serializeGetParams(params))
-		.then( res => {
-			return res.json();
-		})
-		.then( matches => groupByHero(matches))
-		.then( (heroCounts) => {
-			const heroesUrl = api + 'heroes';
-			fetch(heroesUrl).then( res => {
-				res.json().then( heros => {
+	fetch(peersUrl + serializeGetParams({date: params.date})).then( res => {
+		res.json().then( peers => {
+			let excludedPeersQuery = '';
+			if (peers.length) {
+				excludedPeersQuery = '&' + peers.map(peer => {
+					return 'excluded_account_id=' +peer.account_id;
+				}).join('&');
+			}
+
+			fetch(matchesUrl + serializeGetParams(params) + excludedPeersQuery)
+				.then( res => {
+					return res.json();
+				})
+				.then( matches => groupByHero(matches))
+				.then( (heroCounts) => {
 					let stats = [];
 					for( let heroId in heroCounts) {
-						const hero = findHeroById(heros, heroId);
+						const hero = findHeroById(heroId);
 						const heroStats = heroCounts[heroId];
 
 						stats.push({
@@ -32,13 +89,14 @@ function findCounts(player, success) {
 
 					stats.sort((a, b) => b.games - a.games);
 					success(stats);
-				});
-			});
-		});
+				})
+
+		})
+	});
 }
 
-function findHeroById(heros, id) {
-	return heros.find(el => {
+function findHeroById(id) {
+	return heroes.find(el => {
 		if(el.id === parseInt(id)) {
 			return el;
 		}
@@ -127,14 +185,6 @@ function addPlayerChart(info) {
 	})
 }
 
-let players = {
-  30277848: "Aqua",
-  94537401: "Marten",
-  56056709: "Uku",
-  5559243: "Madis",
-  104356591: "+2 pizza"
-};
-
 function loadMMRGraph() {
   fetch("/mmr").then(res => res.json()).then(mmrs => {
     let mmrById = {};
@@ -169,38 +219,5 @@ function loadMMRGraph() {
       },
       series: series
     });
-  });
-}
-
-loadMMRGraph();
-
-let playerList = document.getElementById("players");
-for (let k in players) {
-  let name = players[k];
-  let p = {id: k, name: name};
-  findCounts(p, stats => {
-	let gameCount = 0;
-	let wins = 0;
-
-	stats.forEach(h => {
-		gameCount += h.games;
-		wins += h.wins;
-	});
-
-	let losses = gameCount - wins;
-
-	let winRatio = (wins / gameCount) * 100.0;
-
-	let playerItem = document.createElement("li");
-	let playerStat = document.createTextNode(
-		p.name + " - " + gameCount + " games - " + winRatio.toFixed(1) + "%");
-	playerItem.appendChild(playerStat);
-	playerList.appendChild(playerItem);
-
-	addPlayerChart({
-		name: p.name,
-		id: p.id,
-		stats: stats
-	});
   });
 }
