@@ -15,6 +15,7 @@ let pool = new pg.Pool({
 });
 
 const ENV = app.get('env') || 'prod';
+console.log("ENV: ", ENV);
 
 function updatePlayerMMR(playerId) {
   request("https://api.opendota.com/api/players/" + playerId, function(err, response, body) {
@@ -79,5 +80,5 @@ app.get("/mmr", function(req, res) {
 
 app.set('port', process.env.PORT || 8001);
 http.listen(app.get('port'), function(){
-	console.log('dotabutt listening on *:8001');
+	console.log('dotabutt listening on ', app.get('port'));
 });
